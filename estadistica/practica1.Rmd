@@ -1,0 +1,424 @@
+---
+title: "Practica 1 Estadística Avanzada"
+author: "Ramon Soto Sanchez"
+date: '2022-03-05'
+output: 
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    width: 800
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#  Carga de datos
+
+
+
+```{r}
+
+#Se carga el archivo csv en un data frame
+#Para las variables no numéricas se crean factores, el separador
+setwd("D:/uoc/estadistica avanzada/sesion 1/" );
+Salarios <-
+  read.table("CensusIncomedataset.csv",
+  header=TRUE, stringsAsFactors=TRUE, sep=";", na.strings="NA", dec=".",
+  strip.white=TRUE)
+#Se comprueba que se ha leido bien la tabla
+ 
+  str(Salarios)
+  
+
+```
+
+#  Verificación y normalización de las variables
+```{r}
+
+#Borramos las variables que se han pedido 
+Salarios <- within(Salarios, {
+   capital_gain <- NULL
+   capital_loss <- NULL
+   fnlwgt <- NULL 
+  })
+
+# Quitamos las filas con mas de cinco valores perdidos
+filas_antes<-nrow(Salarios)
+Indices<-which(rowSums(is.na(Salarios))>=5)
+Salarios[Indices,]
+Indices
+Salarios<-Salarios[-Indices,]
+
+#Comprobamos cuantas filas se han borrado
+filas_antes
+nrow(Salarios)
+
+#categorizamos los años de educacion
+
+attach(Salarios)
+education_cat<-education_num
+education_cat[education_num<7]<-"Primaria"
+education_cat[education_num>=7 & education_num<9]<-"Secundaria"
+education_cat[education_num>=9 & education_num<13]<-"Universitaria"
+education_cat[education_num>=13]<-"Postuniversitaria"
+Salarios$education_cat<-education_cat
+table(education_cat)
+
+#renombramos variable
+names(Salarios)[c(9)] <- c("gender")
+
+
+```
+
+
+#  Duplicación de códigos
+
+```{r}
+##En primer lugar se dejan de tratar los valores de CS_ID como factores para poder nuevos en caso de que sea necesario
+Salarios$CS_ID<-as.character(Salarios$CS_ID)
+
+##Se obtienen los  índices de los registros con valores de CS_ID  ya usados en registros anteriores
+Indices<-which(duplicated(Salarios$CS_ID))
+
+
+##Éstos son los valores repetidos
+Salarios[Indices,c("CS_ID")]
+
+##se parte del CS_ID del último registro y se le suma 1
+##se hace una búsqueda hacia adelante para encontrar el siguiente valor no asignado
+##Se repite el proceso para cada registro que tenga un valor de CS_ID repetido
+
+iterador<-1
+for (i in Indices){
+  
+  codigo_aux<- paste("CS",as.character(nrow(Salarios)+iterador),sep = "")
+  while(!identical(which(Salarios$CS_ID==codigo_aux),integer(0))){
+    iterador<-iterador+1
+    codigo_aux<- paste("CS",as.character(nrow(Salarios)+iterador),sep = "")
+  }
+  
+  cat("Para el registro ",i,"  se asigna el codigo: ",codigo_aux,"\n")
+  Salarios[i,c("CS_ID")]<-codigo_aux
+  iterador<-iterador+1
+  
+}
+
+##Verificamos que ya no hay  duplicados 
+Indices<-which(duplicated(Salarios$CS_ID))
+Salarios[Indices,c("CS_ID")]
+
+
+
+
+
+```
+
+#  Normalización de las variables cualitativas
+
+```{r}
+#Recortamos espacios en blanco en los valores de las variables cualitativas
+
+variables_cualitativas<-names(Filter(is.factor,Salarios))
+
+for(name  in variables_cualitativas){
+  Salarios[[name]]<-factor(trimws(Salarios[[name]],"l"))
+}
+
+#Observamos el orden en el que se encuentran las categorías y ese es el que aplicamos para recortarlas a un caracter
+levels(Salarios$marital_status)
+levels(Salarios$marital_status)<-c("D","M","S","X","W")
+levels(Salarios$marital_status)
+head(Salarios$marital_status)
+table(Salarios$marital_status)
+
+#Dibujamos mediante un diagrama de barras la distribución de marital_Status
+barplot(table(Salarios$marital_status), main = "Frequencia absoluta",
+        col = rainbow(5))
+        
+#Refactorizamos  la variable gender
+library(car)
+#Niveles actuales
+levels(Salarios$gender) 
+Salarios$gender <- Recode(Salarios$gender, 
+                   '"Fem"="f"; "Female"="f";"F"="f"; "female"="f"; "M"="m"; "male"="m"; "Male"="m"',
+                   as.factor=TRUE)
+#Niveles despues de refactorizar                   
+levels(Salarios$gender) 
+#Dibujamos su distribución
+barplot(table(Salarios$gender), main = "Frequencia absoluta",
+        col = rainbow(2))
+
+
+```
+
+# Normalización de las variables cuantitativas
+```{r}
+#Para age  y education_num se hace un casting a integer
+
+Salarios$age<-as.integer(Salarios$age)
+Salarios$education_num<-as.integer(Salarios$education_num)
+head(Salarios[, c('age', 'education_num')])
+tail(Salarios[, c('age', 'education_num')])
+
+
+
+## Se hace una copia de de income y  numeric para comparar los valores iniciales con los después de normalizar
+
+income_before<-Salarios$income
+hours_per_week_before<-Salarios$hours_per_week
+
+
+##Se sustituyen las comas por puntos
+
+Salarios$hours_per_week<-gsub(",", ".", Salarios$hours_per_week)
+Salarios$income<-gsub(",", ".", Salarios$income)
+
+## Se obtienen los índices de los valores expresados en miles de euros en income
+K_EUR_Indice<-regexpr("Milers",Salarios$income)
+
+##Se obtienen los índices de los registros que contienen valores numericos válidos para income 
+Indice_aux_hours_per_week<-regexpr("[[:digit:]]+\\.*[[:digit:]]*",Salarios$hours_per_week)
+Indice_aux_income<-regexpr("[[:digit:]]+\\.*[[:digit:]]*",Salarios$income)
+
+##Aux contiene los valores numericos aislados del resto de caracteres
+Aux_hours_per_week<-regmatches(Salarios$hours_per_week,regexpr("[[:digit:]]+\\.*[[:digit:]]*",Salarios$hours_per_week))
+Aux_income<-regmatches(Salarios$income,regexpr("[[:digit:]]+\\.*[[:digit:]]*",Salarios$income))
+
+##En caso de que hubiera, aquí se mostrarían los indices y valores que no tenían un valor valido
+which(Indice_aux_hours_per_week==-1)
+Salarios[which(Indice_aux_hours_per_week==-1), c('hours_per_week')]
+which(Indice_aux_income==-1)
+Salarios[which(Indice_aux_income==-1), c('income')]
+
+##Para el resto de registros, con valores de income válidos , se hace la modificación
+Salarios[which(Indice_aux_hours_per_week!=-1), c('hours_per_week')]<-Aux_hours_per_week
+Salarios[which(Indice_aux_income!=-1), c('income')]<-Aux_income
+
+## paso a numeric
+Salarios$income<-as.numeric(Salarios$income)
+Salarios$hours_per_week<-as.numeric(Salarios$hours_per_week)
+
+##Ayudándonos del vector de indices que contiene los registros en los que income esta expresado en euros pasamos a miles de euros
+Salarios[which(K_EUR_Indice==-1), c('income')]<-Salarios[which(K_EUR_Indice==-1), c('income')]/1000
+
+
+
+
+##se muestran  los nuevos valores de las dos columnas comparados con los que traía la tabla originalmente
+
+compara_income<-data.frame(Salarios$income,income_before)
+head(compara_income)
+tail(compara_income)
+
+compara_hours_per_week<-data.frame(Salarios$hours_per_week,hours_per_week_before)
+head(compara_hours_per_week)
+tail(compara_hours_per_week)
+
+
+```
+
+# Valores atípicos
+
+```{r}
+#Nos vamos ayudar de los diagramas de caja para discriminar los valores anormalmente bajos o altos
+# Los que apenas se salgan de los límites mínimo y máximo no los marcaremos como atípicos
+
+## Para age se observan más de 30 valores por encima del máximo, pero solo consideraremos anormalmente altos 
+## los  dos que están por encima de los 500 años 
+boxplot( Salarios$age, main="edad", col="gray")
+boxplot.stats(Salarios$age)$out
+Salarios[which(Salarios$age>500),c("age")]<-NA
+
+
+
+
+## Para income consideramos valores anormalmente altos los superiores a 2000 K euros 
+##y como anormalmente  bajo el que no llega ni a los mil euros
+boxplot( Salarios$income, main="income", col="gray")
+boxplot.stats(Salarios$income)$out
+
+Salarios[which((Salarios$income>2000)|(Salarios$income<1)),c("income")]<-NA
+
+##Aquí  no vamos a borrar ninguno porque no existen valores o grupos de valores aislados del resto de la distribución
+#Son muchos los vlores atípicos
+
+boxplot( Salarios$hours_per_week, main="hours_per_week", col="gray")
+length(boxplot.stats(Salarios$hours_per_week)$out)
+
+
+
+#Para esta variable consideramos atípicos los valores por debajo de 5
+
+boxplot( Salarios$education_num, main="education_num", col="gray")
+length(boxplot.stats(Salarios$education_num)$out)
+
+Salarios[which((Salarios$education_num<5)),c("education_num")]<-NA
+
+
+```
+# Imputacion de valores
+```{r}
+
+##Se asigna la media aritmetica para age sin considerar parra el cómputo los valores NA
+Salarios[which(is.na(Salarios$age)),c("age")]<-as.integer(mean(Salarios$age,na.rm=TRUE))
+##se comprueba que no quedan valores por imputar
+length(which((is.na(Salarios$age))))
+
+##para income se asigna la media agrupado por gender
+
+media<-mean(Salarios$income,na.rm=TRUE)
+media_m<-mean(Salarios[which(Salarios$gender=="m"),c("income")],na.rm=TRUE)
+media_f<-mean(Salarios[which(Salarios$gender=="f"),c("income")],na.rm=TRUE)
+media
+media_f
+media_m
+
+
+Salarios[which((is.na(Salarios$income))&(Salarios$gender=="m")),c("income")]<-media_m
+Salarios[which((is.na(Salarios$income))&(Salarios$gender=="f")),c("income")]<-media_f
+
+##se comprueba que no quedan valores por imputar
+length(which((is.na(Salarios$income))))
+
+
+##para education_num y hours_perweek se usa el la imputacion por los 11 vecinos más cercanos 
+## agrupados por gender y considerando para el cálculo de las distancias el resto de variables cuantitativas
+
+library(VIM)
+ 
+ Salarios_m<-Salarios[which(Salarios$gender=="m"),]
+ Salarios_f<-Salarios[which(Salarios$gender=="f"),]
+Salarios_m<-kNN(Salarios_m,variable=c("education_num"),k=11,dist_var=c("age","income","hours_per_week"))
+Salarios_f<-kNN(Salarios_f,variable=c("education_num"),k=11,dist_var=c("age","income","hours_per_week"))
+
+Salarios_m<-kNN(Salarios_m,variable=c("hours_per_week"),k=11,dist_var=c("age","income","education_num"))
+Salarios_f<-kNN(Salarios_f,variable=c("hours_per_week"),k=11,dist_var=c("age","income","education_num"))
+
+
+
+Salarios<-rbind(Salarios_m,Salarios_f)
+
+Salarios <- within(Salarios, {
+  hours_per_week_imp <- NULL
+  education_num_imp <- NULL
+ 
+})
+##se comprueba que no quedan valores por imputar
+length(which((is.na(Salarios$education_num))))
+length(which((is.na(Salarios$hours_per_week))))
+
+
+
+```
+# Estudio descriptivo
+```{r}
+
+
+
+media.windsor <- function( x, perc=0.05){
+  
+  ##Se calculan los cuantiles de perc y 1-perc
+  ##los valores superiores al cuantil de  1-perc se sustituyen por éste y los inferioes al cuantil de perc se cambian por dicho cuantil
+  umbrales<-quantile(x, probs=c(perc,1.0-perc))
+  
+  
+  x[x<umbrales[1]]<-umbrales[1]
+  x[x>umbrales[2]]<-umbrales[2]
+  
+  return(mean(x,na.rm = TRUE))
+  
+}
+
+media.recortada <- function( x, perc=0.05){
+  
+ ##Se calculan los cuantiles de perc y 1-perc
+  #Todo lo que quede respectivamente por debajo y por arriba no será considerado para calcular la media
+  umbrales<-quantile(x, probs=c(perc,1.0-perc))
+  
+  
+  x<-x[(x>umbrales[1])]
+  x<-x[(x<umbrales[2])]
+  
+  return(mean(x,na.rm = TRUE))
+  
+}
+
+
+
+attach(Salarios)
+
+#Para income probamos distintos cuantiles para los dos tipos de medias
+#Conforme aumentamos perc aumenta la media , especialmente en el caso de la media recortada
+# Se puede deducir que existen más valores en el extremo inferor de la distribución que en el superior
+percents<-as.numeric(c(0.05,0.1,0.15,0.2,0.3,0.5))
+for (i in percents){
+cat("Para income,  con perc=",i," medica windsor: ",media.windsor(income,perc=i)," media recortada: ",media.recortada(income,perc=i),"\n")
+  
+}
+
+
+##Estudio descriptivo
+
+
+#De los tres estimadores de la tendencia central la media aritmética es el menos robusto ya que está muy influida por los valores atípicos
+#Si comparamos el valor de la mediana de income con el de la media windosrizada usando  un percentil del 0.5 vemos que coinciden (49.71)
+#Como estimador de la dispersión no robusto está la desviación típica 
+#Los robustos son el rango intercuartílico (cuartil 3 -cuartil 1) y la desviacion media absoluta  
+
+
+
+media_windsor<-c(media.windsor(age),media.windsor(education_num),media.windsor(income),media.windsor(hours_per_week))
+media_recortada<-c(media.recortada(age),media.recortada(education_num),media.recortada(income),media.recortada(hours_per_week))
+                                                                                    
+
+estudio<- data.frame(age,education_num,income,hours_per_week)
+media_aritmetica<-apply(estudio, 2, mean, na.rm = TRUE)
+mediana<-apply(estudio, 2, median, na.rm = TRUE)
+desviacion_estandar<-apply(estudio, 2, sd, na.rm = TRUE)
+desviacion_abs_med<-apply(estudio, 2, mad, na.rm = TRUE)
+rango_interc<-apply(estudio, 2, IQR, na.rm = TRUE)
+resumen<-rbind(media_aritmetica,mediana,media_windsor,media_recortada,desviacion_estandar,desviacion_abs_med,rango_interc)
+resumen
+
+
+##Histogramas de distribución
+
+
+#Se observa que presenta una distribución asimétrica positva, es decir, hay valores más separados a la derecha de la tendencia central
+
+ hist(age, breaks="Sturges", col="darkgray",ylab="Frecuencia")
+ 
+## Para hours_er_week se ve que los datos están muy concentrados hacia la media. 
+## Comparándola con una distribución normal tiene una curva muy acentuada. 
+## También tiene mayor dispersion en la cola a la derecha de la media
+  
+hist(hours_per_week, breaks="Sturges", col="darkgray", ylab="Frecuencia")
+
+# Para  education_num se puede interpretar la distribución  como bimodal
+  
+ hist(education_num, breaks="Sturges", col="darkgray", ylab="Frecuencia")
+ 
+ #En contraposición a age, la cola izquierda de la distribución de income es ligeramente más larga que la de la derecha (distribución asimétrica negativa)
+   
+  hist(income, breaks="Sturges", col="darkgray", ylab="Frecuencia")
+   
+
+```
+
+
+
+# Escribir salida
+
+```{r}
+
+
+
+write.csv(Salarios, file="CensusIncome_clean.csv",row.names=F)
+
+```
+
+
