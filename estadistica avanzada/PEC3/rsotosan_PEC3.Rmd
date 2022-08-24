@@ -1,0 +1,775 @@
+---
+title: "PEC 3 Estadistica Avanzada"
+author: "Ramon Soto"
+date: '2022-05-05'
+output:  
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    width: 800
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Carga de datos
+
+Volcado en un dataframe y presentación de datos
+
+```{r cars}
+
+
+
+library(dplyr)
+library('ggplot2')
+library('corrplot')
+library("ggpubr")
+library("faraway")
+library(car)
+library(questionr)
+
+
+setwd("D:/uoc/estadistica avanzada/pec3/" );
+
+airs <- 
+  read.table("dat_Air_Stations.csv", 
+             header=TRUE, stringsAsFactors=TRUE, sep=",", na.strings="NA", dec=".", 
+             strip.white=TRUE)
+head(airs)
+str(airs)
+summary(airs)
+```
+
+
+# Regresión Lineal 
+##  Estudio comparativo de las estaciones
+
+Creamos un nuevo dataframe con los valores máximos y medios diarios de cada estación. Posteriormente para cada contaminante se listará  ordenados de menor a mayor el número de días para los que se superan los umbrales medios y máximos tal como se describe en el enunciado. 
+
+```{r}
+
+
+
+
+airs$Fecha<-as.Date(airs$Fecha, "%m/%d/%y")
+
+OMS_media_PM10<-45
+OMS_media_O3<-60
+OMS_media_SO2<-40
+OMS_media_NO2<-25
+OMS_max_diaria_O3<-100
+OMS_max_diaria_NO2<-120
+
+max_med<-airs %>%
+  group_by(Fecha,Nombre) %>%
+  summarize(mediaPM10 = mean(PM10, na.rm=TRUE), maxPM10=max(PM10),
+            mediaNO2 = mean(NO2, na.rm=TRUE), maxNO2=max(NO2),
+            mediaO3 = mean(O3, na.rm=TRUE), maxO3=max(O3),
+            mediaSO2 = mean(SO2, na.rm=TRUE), maxSO2=max(SO2))
+ 
+
+
+
+supera_OMS_PM10<-select((max_med%>%filter(mediaPM10>OMS_media_PM10)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+supera_OMS_O3<-select((max_med%>%filter(mediaO3>OMS_media_O3)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+
+supera_OMS_SO2<-select((max_med%>%filter(mediaSO2>OMS_media_SO2)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+supera_OMS_NO2<-select((max_med%>%filter(mediaNO2>OMS_media_NO2)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+
+
+supera_OMS_maxO3<-select((max_med%>%filter(maxO3>OMS_max_diaria_O3)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+supera_OMS__maxNO2<-select((max_med%>%filter(maxNO2>OMS_max_diaria_NO2)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+
+
+supera_OMS_PM10
+supera_OMS_O3
+supera_OMS_SO2
+supera_OMS_NO2
+
+```
+
+
+
+```{r}
+
+supera_OMS_maxO3
+supera_OMS__maxNO2
+
+
+```
+
+
+
+Vemos que los contaminantes para los que se superan más veces los umbrales de la OMS son el O3, tanto en valores promedio como máximos, y el NO2 (sólo en el caso del umbral del valor medio). Para PM10 ninguna estación llega a la decena de veces en las que se supera el valor umbral.
+
+En el caso del umbral medio del O3 destacan por encima del resto las estaciones de Montevil y Avenida Castilla.
+Para SO2 no hay valores que sobrepasen el umbral.
+Para No2 destacan las estaciones de Hermanos Felgueroso, Avenida Constitución y Avenida Argentina.
+
+Los valores máximos de O3 que superan el límite solo son más de 10 para tres de las estaciones.
+
+
+##  Evolución de los contaminantes
+
+A continuación se muestra las gráficas de la evolución a lo largo del año para cada contaminante en cada estación. Con la curva promedio se ve en general que se mantienen sin variaciones considerables. Únicamente se observa que PM10 alcanza un máximo anual entorno a abril en alguna de  y SO2 lo hace en torno a mayo pero en general la curva es muy poco pronunciada.
+
+
+```{r}
+
+# volvemos a hacer el datafame con la variable "Estacion" en lugar del "nombre"
+max_med<-airs %>%
+  group_by(Fecha,Estacion) %>%
+  summarize(mediaPM10 = mean(PM10, na.rm=TRUE), maxPM10=max(PM10),
+            mediaNO2 = mean(NO2, na.rm=TRUE), maxNO2=max(NO2),
+            mediaO3 = mean(O3, na.rm=TRUE), maxO3=max(O3),
+            mediaSO2 = mean(SO2, na.rm=TRUE), maxSO2=max(SO2))
+
+
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Constitucion")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Argentina")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Hermanos Felgueroso")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Castilla")
+
+k<-ggplot(data = max_med[max_med$Estacion==10,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion de Montevil")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Constitucion")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Argentina")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Hermanos Felgueroso")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Castilla")
+
+k<-ggplot(data = max_med[max_med$Estacion==10,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion de Montevil")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Constitucion")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Argentina")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Hermanos Felgueroso")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Castilla")
+
+k<-ggplot(data = max_med[max_med$Estacion==10,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion de Montevil")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Constitucion")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Argentina")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Hermanos Felgueroso")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion Avenida Castilla")
+
+k<-ggplot(data = max_med[max_med$Estacion==10,], aes(x =Fecha , y = maxSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion de Montevil")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+
+```
+
+
+## Mapa de calor de correlaciones
+
+A continuación se muestra un mapa por estación y contaminantes.  Para cada contaminarte, comparándolos con las variables meteorológicas, no se observa ninguna correlación alta ni positiva ni negativa, ya que ningún valor llega 0.5 o -0.5
+
+```{r}
+dibuja_correlaciones <-function(i) { 
+estacion_SO2<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(SO2==max(SO2))%>%select(Fecha,SO2,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_SO2)=="Fecha") 
+estacion_SO2<-estacion_SO2[,-elim.pos]
+
+mat_Cor1<-cor(na.omit(estacion_SO2))
+
+#corrplot(mat_Cor, method = 'number')
+
+
+estacion_PM10<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(PM10==max(PM10))%>%select(Fecha,PM10,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_PM10)=="Fecha") 
+estacion_PM10<-estacion_PM10[,-elim.pos]
+
+mat_Cor2<-cor(na.omit(estacion_PM10))
+
+#corrplot(mat_Cor, method = 'number')
+
+
+estacion_O3<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(O3==max(O3))%>%select(Fecha,O3,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_O3)=="Fecha") 
+estacion_O3<-estacion_O3[,-elim.pos]
+
+mat_Cor3<-cor(na.omit(estacion_O3))
+
+#corrplot(mat_Cor, method = 'number')
+
+estacion_NO2<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(NO2==max(NO2))%>%select(Fecha,NO2,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_NO2)=="Fecha") 
+estacion_NO2<-estacion_NO2[,-elim.pos]
+
+mat_Cor4<-cor(na.omit(estacion_NO2))
+
+#corrplot(mat_Cor, method = 'number')
+
+par( mfrow=c(2,2))
+corrplot(mat_Cor1, method = 'number', title=as.character(i))
+corrplot(mat_Cor2, method = 'number')
+corrplot(mat_Cor3, method = 'number')
+corrplot(mat_Cor4, method = 'number')
+par( mfrow=c(1,1))
+
+
+}
+dibuja_correlaciones("Estacion Avenida Constitucion")
+dibuja_correlaciones("Estacion de Montevil")
+
+
+
+
+```
+
+
+
+## 1.2 Modelos de regresión lineal
+
+Hacemos la regresión lineal  tomando O3 como variable dependiente y NO2 como variable independiente.
+
+El coeficiente asociado a NO2 es negativo, luego se deduce una relación inversa con O3:  un aumento en una unidad de NO2 supondría un decremento de de O3 en aproximadamente 1.03 unidades.
+
+Fijándonos el valor de R^2  sacamos la conclusión de que  la varianza de la regresión explica sólo alrededor del 42% de la varianza de todos los datos. Es muy lejano a 1 y por tanto no es un buen ajuste.
+
+
+
+```{r}
+
+model <- lm(O3 ~ NO2 , data = airs)
+summary(model)
+
+
+
+
+
+
+
+```
+
+A continuación vamos a añadir la variable de los nombres de las estaciones. La función lm la transformara en 4 variables dummies de acuerdo a este patrón de abajo.
+
+Cuando las cuatro variables binarias valgan cero la regresión nos hará la estimación del valor de O3 para la Estación  de Avenida Argentina, quedando determinado por el valor "Intercept".
+
+```{r}
+
+contrasts(airs$Nombre)
+
+```
+
+Centrándonos el los valores de los coeficientes resulta llamativo el nivel de significancia de la Estación "Avenida Hermanos Felgueroso". Es extremadamente alto, muy por encima de lo que seria un umbral aceptable, en torno al 0.05. El coeficiente de determinación a pasado a 0.4267, es decir ha mejorado con respecto al modelo anterior tan solo en menos de 0.005. Concluimos  que la variable "Nombres" no aporta mejoras significativas a la bondad del ajuste.
+
+
+```{r}
+
+
+
+model <- lm(O3 ~ NO2+Nombre , data = airs)
+summary(model)
+
+```
+
+
+
+##  Regresion lineal múltiple
+
+### A)
+
+Construimos el modelo para cada una de las estaciones de incluyendo las variables indicadas.
+
+Para la estación de Montevil todos los coeficientes de las variables independientes con un nivel de significancia próximo a cero.
+
+Para No2 y HR la correlación es negativa. Si volvemos a la matriz de correlaciones para O3 y HR en con los datos totales de esta estación coincide el signo de la correlación.
+
+El coeficiente de determinación sube casi en 0.2 puntos con respecto a los dos modelos anteriores, sin embargo sigue estando aún demasiado alejado de 1.
+
+```{r}
+
+data_Montevil<- airs %>% filter(Nombre=="Estacion de Montevil") %>% select(O3,NO2,vv,RS,HR,LL,TMP)
+modelo_Montevil <- lm(O3 ~ NO2 + vv + RS +HR +LL, data = data_Montevil)
+summary(modelo_Montevil)
+
+```
+
+Para la estación de la Avenida Constitución los coeficientes tienen unos valores parecidos si bien el R^2 es algo inferior y no llega a 0.6
+
+
+```{r}
+
+data_Constitucion<- airs %>% filter(Nombre=="Estacion Avenida Constitucion") %>% select(O3,NO2,vv,RS,HR,LL,TMP)
+modelo_Constitucion <- lm(O3 ~ NO2 + vv + RS +HR +LL, data = data_Constitucion)
+summary(modelo_Constitucion)
+
+
+```
+
+
+### B)
+
+
+
+Al introducir como variable independiente  TMP, para Montevil el coeficiente de determinación apenas sube del 0.61 al 0.612
+
+Para la otra estación ni lo mejora. Es más TMP tienen un nivel de significancia cercano a 1, luego de ahí se deduce  que es mejor quitarla del modelo.
+
+
+
+```{r}
+
+modelo_Montevil <- lm(O3 ~ NO2 + vv + RS +HR +LL+TMP, data = data_Montevil)
+summary(modelo_Montevil)
+
+modelo_Constitucion <- lm(O3 ~ NO2 + vv + RS +HR +LL+TMP, data = data_Constitucion)
+summary(modelo_Constitucion)
+
+
+```
+
+
+Ahora calculamos el factor de invarianza para cada uno de los predictores y vemos que si bien TMP es el que tienen el valor más alto para los dos modelos, está muy por debajo del nivel para el que podemos considerar que existe colinealidad de acuerdo a los umbrales indicados en el  enlace de abajo.
+
+https://quantifyinghealth.com/vif-threshold/
+
+
+```{r}
+
+
+
+
+
+vif(modelo_Montevil)
+
+
+
+vif(modelo_Constitucion)
+```
+
+
+
+
+
+## Diagnosis del modelo
+
+
+
+
+
+
+
+
+Comenzamos mostrando gráficamente la regresión lineal considerando en cada gráfica uno de los predictores
+
+Posteriormente dibujamos  la gráfica de valores ajustados frente a los residuos. Si el modelo lineal obtenido se ajusta bien a los datos muestrales, entonces la
+nube de puntos no debe mostrar ningún tipo de estructura. En esta ocasión se observa una forma extraña para valores del  O3 inferrioes a 40 aproximadamente.
+
+
+Por otro lado, en la gráfica cuantil-cuantil también vemos que los valores residuales no se distribuyen completamente alienados a lo largo de toda 
+la recta de 45 grados.  Esto quiere decir que los residuos no se distribuyen de forman normal cuando están fuera del rango intercuantil Q1-Q3. 
+
+
+Si dibujamos la distribución de los residuos se ve efectivamente que tienen una asimetría positiva que se alarga más allá de valores superiores a 40
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+avPlots(modelo_Montevil, main="as")
+
+
+res <- resid(modelo_Montevil)
+
+plot(fitted(modelo_Montevil), res)
+abline(0,0)
+
+qqnorm(res)
+
+
+qqline(res)
+
+plot(density(res))
+
+```
+
+
+
+## Predicción del modelo
+
+Usamos la función predict para estimar con el modelo los valores  de los predictores que se especifican en el enunciado.
+
+```{r}
+
+newdf <- data.frame(NO2=c(40),vv=c(2),RS=c(100),HR=c(80),LL=(0.10),TMP=c(25))
+predict(modelo_Montevil,newdf)
+
+
+```
+
+
+
+
+
+# Regresión Logistica
+
+Se crean las variables categóricas 
+
+
+```{r}
+
+airs$icPM10<-NULL
+
+airs$icPM10[(airs["PM10"]>0)&(airs["PM10"]<=45)]="aceptable"
+airs$icPM10[(airs["PM10"]>45)&(airs["PM10"]<=180)]="mejorable"
+
+airs$icPM10<-as.factor(airs$icPM10)
+
+airs$icO3<-NULL
+
+airs$icO3[(airs["O3"]>0)&(airs["O3"]<=60)]="aceptable"
+airs$icO3[(airs["O3"]>60)&(airs["O3"]<=170)]="mejorable"
+
+airs$icO3<-as.factor(airs$icO3)
+
+airs$RSre<-NULL
+
+airs$RSre[(airs["RS"]>0)&(airs["RS"]<=100)]="normal baja"
+airs$RSre[(airs["RS"]>100)&(airs["RS"]<=700)]="normal alta"
+
+airs$RSre<-as.factor(airs$RSre)
+
+airs$month<-months(airs$Fecha)
+
+
+```
+
+
+
+
+## Análisis crudo. Cálculo de OR
+
+
+
+Creamos la variable month a partir de la fecha. 
+
+Construimos la funcion para calcular los odds ratio 
+
+```{r}
+funcion_OR <-function(tc) { 
+  numerador<-(tc[2,1]/sum(tc[,1]))
+  numerador<-numerador/(1-numerador)
+  denominador<-(tc[2,2]/sum(tc[,2]))
+  denominador<-denominador/(1-denominador)
+  OR<-numerador/denominador
+  return(OR)
+}
+
+airs$month<-months(airs$Fecha)
+```
+
+
+Vamos a considerar para month los meses de enero y agosto, que tienen temperatura y en general valores meteorológicas en promedio muy distintos. 
+Centrándonos en la estación de Montevil la función devuelve valores cercanos a 1 para para los odds-ratio de PM10-RS y O3-month.
+en cambio para PM10-month y O3-RS se obtiene valores muy alejados de 1. 
+Esto quiere decir que la probabilidad de que el nivel de PM10 sea mejorable cuando el mes es agosto es 9.8 veces la de  si el mes fuera enero.
+Igualmente la probabilidad de que el nivel de O3 sea mejorable con RS alta es más de 5 veces la probabilidad  de que la RS sea baja.
+
+
+```{r}
+data_Montevil<- airs %>% filter(Nombre=="Estacion de Montevil") %>% select(O3,NO2,vv,RS,PRB,HR,LL,TMP,month,icPM10,icO3,RSre)
+
+
+aux_Montevil<-data_Montevil %>% filter(month %in% c("enero","agosto")) %>% select(month,icO3,icPM10)
+
+tc<-table(data_Montevil$icPM10,data_Montevil$RSre)
+tc
+funcion_OR(tc)
+tc<-table(data_Montevil$icO3,data_Montevil$RSre)
+tc
+funcion_OR(tc)
+
+tc<-table(aux_Montevil$icPM10,aux_Montevil$month)
+tc
+funcion_OR(tc)
+
+tc<-table(aux_Montevil$icO3,aux_Montevil$month)
+tc
+funcion_OR(tc)
+
+
+```
+
+
+
+Comparamos el ultomo odds-ratio caluclado con lo que nos devuelve la funcion odds.ratio para confiramr que los calculos sin los mismos 
+```{r}
+
+1/odds.ratio(tc)
+
+```
+
+
+
+
+
+A continuación volvemos a hacer los cálculos pero esta vez con los datos para la estación de Avenida Constitución. De nuevo obtenemos valores alejados de 1 únicamente para los pares de PM10-month y O3-month pero en este subconjunto de datos los valores se quedan en torno a 2.
+
+
+
+```{r}
+
+
+
+data_Constitucion<- airs %>% filter(Nombre=="Estacion Avenida Constitucion") %>% select(O3,NO2,vv,RS,PRB,HR,LL,TMP,month,icPM10,icO3,RSre)
+
+
+aux_Constitucion<-data_Constitucion %>% filter(month %in% c("enero","agosto")) %>% select(month,icO3,icPM10)
+
+tc<-table(data_Constitucion$icPM10,data_Constitucion$RSre)
+tc
+funcion_OR(tc)
+tc<-table(data_Constitucion$icO3,data_Constitucion$RSre)
+tc
+funcion_OR(tc)
+
+tc<-table(aux_Constitucion$icPM10,aux_Constitucion$month)
+tc
+funcion_OR(tc)
+
+tc<-table(aux_Constitucion$icO3,aux_Constitucion$month)
+tc
+funcion_OR(tc)
+
+```
+
+
+
+La conclusión que podemos sacar tras ver ambos subdatasets es que la variable month  es un factor de riesgo para el nivel de PM10 y la radiación solar lo es para el nivel de O3, especialmente considerando los datos de la primera estación.
+
+
+
+
+
+## Modelo de regresión logística
+
+Se toma como variable dependiente icPM10 y
+variables explicativas (RS_re), (vv) y (PRB).
+
+El coeficiente de la RS es negativo , de lo que se deduce que para una radiación solar baja la probabilidad de que  el nivel de MP10 sea mejorable
+es más baja que en el caso de que la  RS sea alta. Estos datos son coherentes con lo visto en el apartado anterior con el calculo de las OR. 
+Para saber la magnitud de esa relación calculamos los exponentes de los coeficientes del modelo para obtener las OR para cada predictor así como sus intervalos de confianza.
+
+En general podemos dar por bueno el modelo ya que la devianza (grado de
+diferencia entre las frecuencias observadas y las predichas por el modelo) residual es inferior a la nula
+
+```{r}
+
+
+modelo_a=glm(formula=icPM10~RSre+PRB+vv,family=binomial(link=logit),data=data_Montevil)
+
+summary(modelo_a)
+
+
+exp(coefficients(modelo_a))
+
+exp(confint(modelo_a))
+
+
+```
+
+
+A continuación se añade al modelo la variable month. El valor de referencia para el calculo de las OR será enero.
+Lo primero que se aprecia al echar un vistazo a las variables dicótomas generadas a partir de month es que los meses de febrero,
+julio, marzo y octubre tienen un nivel de significancia que supera el umbra de 0.05, luego podríamos descartalas.
+No obstante los valores de devianza residual y el  índice de información de Akaike (AIC) son inferiores al del modelo del apartado anterior , luego podríamos decir que este modelo en global mejora al anterior
+
+```{r}
+data_Montevil$month<-as.factor(data_Montevil$month)
+data_Montevil$month<-relevel(data_Montevil$month, ref = 'enero')
+
+modelo_b=glm(formula=icPM10~RSre+PRB+vv+month,family=binomial(link=logit),data=data_Montevil)
+
+summary(modelo_b)
+```
+
+Por ultimo lugar se añade la variable TMP . El AIC y la devarianza resudual bajan con respecto al modelo sin TMP menos de 10 unidades. LA mejora es muy leve por tanto.
+
+
+
+```{r}
+modelo_c=glm(formula=icPM10~RSre+PRB+vv+month+TMP,family=binomial(link=logit),data=data_Montevil)
+
+summary(modelo_c)
+```
+
+
+Con respecto a a si existe confusión entre TMP y RSre, se observa que el nivel de significancia ha bajado en este modelo para RS de 
+
+0.93 a 0.66. Realmente la confusión sería entre RSre y la variable month ya que el nivel de significancia de RS sin meter month, es decir, en el primer modelo, era de 0.001*
+
+
+Es más si ahora quitásemos la variable month el  nivel de significancia para RS volvería a bajar:
+
+```{r}
+modelo_k=glm(formula=icPM10~RSre+PRB+vv+TMP,family=binomial(link=logit),data=data_Montevil)
+
+summary(modelo_k)
+
+
+
+
+```
+
+
+## Prediccion
+
+
+Ahora se calcula la probabilidad de que la concentración de PM10 sea o no superior
+a 45, con unos valores de vv= 0.6, RS_re=“Normal_alta”,PRB= 1013, en el mes de Agosto usando el modelo b.
+Si el nivel de PM10 es superior a 45 estaríamos hablando del valor "mejorable"(1) y en el caso contrarío sería "aceptable"(2), 
+tal como viene mostrado abajo. La probabilidad sacada es de 0.11. Es decir, que para los valores dados de los predictores la probabilidad de que
+el valor de PM10 sea superior a 45 es 0.11 veces la probabilidad de que sea inferior o igual a 45.
+
+
+```{r}
+
+
+
+levels(modelo_b$model$icPM10)[1]
+levels(modelo_b$model$icPM10)[2]
+pred<-predict(modelo_b, data.frame(vv=0.6,RSre="normal alta", PRB=1013, month="agosto"),type ="response")
+pred
+
+
+```
+
+
+
+
+
+
+## Bondad del ajuste
+
+
+
+Cuando hacemos el test de  Hosman-Lemeshow vemos que el p-valor es muy bajo y tenemos que rechazar la hipoteis nula de que el modelo se ajusta a los valores reales.
+
+```{r}
+
+
+
+library(ResourceSelection)
+
+hoslem.test(modelo_b$y,fitted(modelo_b))
+
+```
+
+
+Si hacemos el test con los otros dos modelos vemos que el p-valor tiene un valor suficiente alto para  no poder descartar la hipotesis nula y dar por buenos los ajustes.
+
+Podríamos sospechar que que precisamente la confusión que provoca la variable month con con el valor de RS, siendo de mas de 0.9 en el modelo b, estaría relacionada con que el modelo en cuestión nos de ese resultado.
+
+
+```{r}
+hoslem.test(modelo_c$y,fitted(modelo_c))
+hoslem.test(modelo_a$y,fitted(modelo_a))
+
+
+
+```
+
+
+
+## Curva ROC
+
+
+Calculamos la curva ROC del modelo B (sensibilidad frente a 1 menos la especificidad) y obtenemos posteriormente un valor del área bajo la curva que dentro del intervalo 0.6 y 0.8
+
+que determina que el modelo discrimina de forma adecuada
+
+```{r}
+
+library(pROC)
+
+r=roc(modelo_b$y,fitted(modelo_b), data=modelo_b$model)
+
+
+plot(r)
+auc(r)
+
+
+```
+
+Si comparamos con el los otros dos modelos, se observa que el del apartado C, obtiene un  valor de AUC sensiblemente mejor.
+
+```{r}
+
+r=roc(modelo_a$y,fitted(modelo_a), data=modelo_a$model)
+plot(r)
+auc(r)
+r=roc(modelo_c$y,fitted(modelo_c), data=modelo_c$model)
+plot(r)
+auc(r)
+
+```
+
+
+
+## Conclusiones
+
+
+Como conclusión final de los modelos de regresión linea desarrollados , el valor del R2 alcanzado se ha quedado en torno al 62 %  siendo un porcentaje bastante bajo que explica la varianza total de los datos del modelo. Además la distribución de los residuos no sigue una distribución normal en todo su intervalo. Parte de estos resultados se podría deber por ejemplo a que variables como vv se prestan con dificultad estimarse mediante una regresión  lineal , tal como se ha mostrado en su gráfica avPlots.
+
+Para mejorar la bondad habría que seguir analizando que otras variables podrían ser buenos predictores para incluir al modelo (o  quitar alguna)  o tal vez la propia naturaleza de los datos haga complicado obtener mejores resultados mediante una regresión lineal.
+
+
+Con la regresión logística, centrada en  la estimación de probabilidades para valores categorizados de PM10, se han obtenido modelos que según las curvas ROC discriminan bien pero que para uno de sus modelos se ha detectado que la bondad  no era satisfactoria. Para  continuar refinando el modelo habría que seguir indagando acerca de la confusión  que puede haber entre la variable RSre y algunas otras (TMP, month...)
+
+

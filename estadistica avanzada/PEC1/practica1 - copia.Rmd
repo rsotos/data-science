@@ -1,0 +1,125 @@
+---
+title: "Practica 1 Estadistica Avanzada"
+author: "Ramon Soto"
+date: '2022-03-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1 Carga de datos
+## Volcado en DAtaframe y presentacion de datos
+
+
+```{r}
+
+
+Salarios <- 
+  read.table("D:/uoc/estadistica avanzada/sesion 1/CensusIncomedataset.csv", 
+  header=TRUE, stringsAsFactors=TRUE, sep=";", na.strings="NA", dec=".", 
+  strip.white=TRUE)
+  head(Salarios)
+  str(Salarios)
+  summary(Salarios)
+
+```
+```
+# 2 Verificacion y normalizacion de las variables
+```{r}
+
+#borramos variables
+Salarios <- within(Salarios, {
+   capital_gain <- NULL
+   capital_loss <- NULL
+   fnlwgt <- NULL 
+  })
+
+# quitamos filas con mas de cinco NA
+nrow(Salarios)
+Indices<-which(rowSums(is.na(Salarios))>=5)
+Indices
+Salarios<-Salarios[-Indices,]
+nrow(Salarios)
+
+#categorizamos los años de educacion
+
+attach(Salarios)
+education_cat<-education_num
+education_cat[education_num<7]<-"Primaria"
+education_cat[education_num>=7 & education_num<9]<-"Secundaria"
+education_cat[education_num>=9 & education_num<13]<-"Universitaria"
+education_cat[education_num>=13]<-"Postuniversitaria"
+Salarios$education_cat<-education_cat
+table(education_cat)
+
+#renombramos variable
+names(Salarios)[c(9)] <- c("gender")
+
+
+```
+
+
+## 3 Duplicados
+
+```{r}
+
+nrow(Salarios)
+Indices<-which(duplicated(Salarios$CS_ID))
+Indices
+Salarios<-Salarios[-Indices,]
+nrow(Salarios)
+
+
+```
+
+## 4 Normalizacion de los datos
+
+```{r}
+#recortar espacios en blanco en valores de las variables cualitativas
+variables_cualitativas<-names(Filter(is.factor,Salarios))
+
+for(name  in variables_cualitativas){
+  Salarios[[name]]<-factor(trimws(Salarios[[name]],"l"))
+}
+
+#observamos el orden en el que se encuentran las categorías y ese es el que aplicamos para recortarlas a un caracter
+levels(Salarios$marital_status)
+levels(Salarios$marital_status)<-c("D","M","S","X","W")
+levels(Salarios$marital_status)
+head(Salarios$marital_status)
+table(Salarios$marital_status)
+
+#distribucion de marital_Status
+barplot(table(Salarios$marital_status), main = "Frequencia absoluta",
+        col = rainbow(5))
+        
+#refactorizacion de la variable gender
+library(car)
+#niveles actuales
+levels(Salarios$gender) 
+Salarios$gender <- Recode(Salarios$gender, 
+                   '"Fem"="f"; "Female"="f";"F"="f"; "female"="f"; "M"="m"; "male"="m"; "Male"="m"',
+                   as.factor=TRUE)
+#niveles despues de refactorizar                   
+levels(Salarios$gender) 
+#distribucion de gender
+barplot(table(Salarios$gender), main = "Frequencia absoluta",
+        col = rainbow(2))
+
+
+```
+
+##normalizacion variables cuantitativas
+```{r}
+#variables_cuantitativas<-names(Filter(is.numeric,Salarios))
+str(Salarios)
+Salarios$age<-as.integer(Salarios$age)
+Salarios$education_num<-as.integer(Salarios$education_num)
+head(Salarios$age)
+head(Salarios$education_num)
+
+```
+
+

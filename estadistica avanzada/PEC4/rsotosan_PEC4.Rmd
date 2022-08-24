@@ -1,0 +1,775 @@
+---
+title: "rsotosan_PEC4.Rmd"
+author: "Ramon Soto"
+date: '2022-05-22'
+output: 
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    width: 80
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(Rcmdr)
+library(faraway)
+library(stats)
+library(agricolae)
+library(kableExtra)
+
+
+```
+
+# Lectura y preparación de los datos
+
+Tras leer el dataset vemos que hay diez columnas de las cuales 4 son booleanas, 5 numéricas y una única se ha leído como cualitativa. La trasnformaremos a continuación 
+
+
+```{r}
+
+
+setwd("D:/uoc/estadistica avanzada/PEC4/" );
+
+gpa <- 
+  read.table("gpa.csv", 
+             header=TRUE, stringsAsFactors=TRUE, sep=",", na.strings="NA", dec=".", 
+             strip.white=TRUE)
+dim(gpa)
+str(gpa)
+head(gpa)
+
+
+```
+
+
+##  Preparación de los datos
+
+La variable othrs, debido a la hache que contienen todos los valores, no se ha cargado como numérica.  
+Al pasar la función extract_numeric se obtiene la parte numérica.
+
+```{r}
+
+gpa$tothrs<-extract_numeric(gpa$tothrs)
+
+class(gpa$tothrs)
+
+
+```
+
+
+
+## Valores ausentes
+
+
+Al hacer un resumen estadístico de cada atributo vemos que colgpa es el único que presenta valores ausentes. 
+
+Su porcentaje, calculado abajo, es ínfimo. Procedemos entonces a eliminar esas filas.
+
+
+```{r}
+summary(gpa)
+
+
+
+
+
+sum(is.na(gpa))/dim(gpa)[1]
+NA.reg <- which(is.na(gpa$colgpa))
+gpaclean <- gpa[-NA.reg,]
+dim(gpaclean)
+
+
+
+```
+
+
+## Equivalencia de la nota en letras
+
+Creamos la nueva variable categórica que discretiza colgpa
+
+
+```{r}
+
+
+
+gpaclean$gpaletter <- NULL
+gpaclean$gpaletter[ gpaclean$colgpa >= 3.5 & gpaclean$colgpa <= 4 ] <- "A"
+gpaclean$gpaletter[ gpaclean$colgpa >= 2.5 & gpaclean$colgpa < 3.5 ] <- "B"
+gpaclean$gpaletter[ gpaclean$colgpa >= 1.5 & gpaclean$colgpa < 2.5] <- "C"
+gpaclean$gpaletter[ gpaclean$colgpa >= 0 & gpaclean$colgpa < 1.5] <- "D"
+
+
+```
+
+
+# Estadística descriptiva y visualización
+
+## Análisis descriptivo
+
+Volvemos a mostrar un resumen del dataset tras las modificaciones del apartado anterior. El número de observaciones se ha reducido a 4096 
+
+y ahora hay 11 atributos.
+
+A continuación elaboramos un resumen estadístico para cada atributo numérico.
+
+```{r}
+dim(gpaclean)
+summary(gpaclean)
+
+estudio<- select(gpaclean, sat,tothrs,hsize,hsrank,hsperc,colgpa)
+media_aritmetica<-apply(estudio, 2, mean, na.rm = TRUE)
+mediana<-apply(estudio, 2, median, na.rm = TRUE)
+desviacion_estandar<-apply(estudio, 2, sd, na.rm = TRUE)
+desviacion_abs_med<-apply(estudio, 2, mad, na.rm = TRUE)
+rango_interc<-apply(estudio, 2, IQR, na.rm = TRUE)
+resumen<-rbind(media_aritmetica,mediana,desviacion_estandar,desviacion_abs_med,rango_interc)
+resumen
+
+
+```
+
+## Visualización
+
+
+A continuación vemos que la distribución  de SAT tienen un un rango intercuartil bastante estrecho. En la tabla de arriba hemos visto que la mediana y la media prácticamente coinciden.
+ Existen bastantes puntos que superan los  extemos máximo y mínimo.
+ 
+  Haciendo disgregación por la variable female  se aprecia que la mediana es sensiblemente inferior  para TRUE si bien se mantienen por encima de 1000 puntos y  en este grupo  la distribución  presenta menos casos fuera de los extremos. 
+   Si consideramos la variable athlete la distribución presenta una mediana bastante más a la izquierda. Podemos considerar que  Athlete es un factor que afecta  a en general al valor de sat.
+   
+   
+Considerando la variable creada gpaletter, se aprecia que los estudiantes que obtiene como calificación A es la distribución que contiene los valores de SAT más altos, con una mediana superior a los 1200. De hecho, observando las distribuciones que obtienen B, C o D no se aprecia una diferencia tan significativa entre ellas como la que hay entre el grupo  con  gpaletter="A" y el resto.  Los estudiantes que obtienen como calificación "A" de hecho apenas presentan muestras fuera de los valores extremos del diagrama de caja  y es una proporción bastante reducida dentro de la muestra, apenas superando el 10%.
+
+
+
+
+```{r}
+
+ggplot(gpaclean, aes(x="", y=sat)) + 
+  geom_boxplot()
+
+ggplot(gpaclean, aes(x=sat, y=female)) + 
+  geom_boxplot()
+ggplot(gpaclean, aes(x=sat, y=athlete)) + 
+  geom_boxplot()
+ggplot(gpaclean, aes(x=sat, y=gpaletter)) + 
+  geom_boxplot()
+
+
+
+```
+
+
+
+```{r}
+gpaclean$excelente<-1*(gpaclean$gpaletter=="A")
+
+Barplot(as.factor(gpaclean$excelente), style="divided", 
+        legend.pos="above", xlab="Calificaciones excelentes", ylab="Porcentaje", scale="percent", 
+        label.bars=TRUE, col=rainbow(2))
+
+
+
+```
+
+# Estadística inferencial
+
+## Intervalo de confianza de la media poblacional de la variable sat
+
+
+El intervalo de confianza para un valor de NC indica que la media de la población se encuentra en dicho intervalo con una confianza del NC*100%
+
+
+```{r}
+IC <- function( x, NC=0.9 ){
+  alfa<-1-NC
+  n<-length(x)
+  desv<-sd(x)
+  media<-mean(x)
+  
+  #Z contiene el valor para el que se cumple que P(X>z)=alfa/2
+  z<-qnorm (alfa/2,lower.tail=FALSE)
+  
+  #Se devuelven los dos valores del intervalo
+  
+  return(c(media-(z*desv/sqrt(n)),media+(z*desv/sqrt(n))))
+  
+}
+
+IC(gpaclean$sat,0.95)
+
+# Cotejamos el resultado con t.test
+t.test(gpaclean$sat)
+
+```
+
+
+A continuación calculamos  los intervalos de confianza al 95% de la media poblacional de la variable sat en función de
+si los estudiantes son hombres o mujeres.
+El rango es de unas 12 unidades y existe una diferencia de unos 43 puntos ente ambos tal como se ve en la media calculada y en los diagramas de caja anteriores
+
+
+
+
+
+```{r}
+
+sat_hombres<-filter(gpaclean,female==FALSE)%>%select(sat)
+
+sat_mujeres<-filter(gpaclean,female==TRUE)%>%select(sat)
+
+IC(sat_hombres$sat,0.95)
+IC(sat_mujeres$sat,0.95)
+
+
+
+```
+
+
+## Contraste de hipótesis para la diferencia de medias de colgpa
+
+
+
+¿La nota media semestral para las estudiantes mujeres es distinta que la de los estudiantes hombres?
+  
+
+Planteamos la hipótesis nula y la hipótesis alternativa:
+
+  H0 mu1=mu2
+
+  H1 mu1!=mu2
+
+
+
+Aquí podemos aplicar un contraste de hipótesis de dos muestras independientes (estudiantes mujeres y estudiantes hombres) sobre la media.
+
+se trata de un contraste bilateral
+
+Como no tenemos información la varianza es desconocida.
+
+Para ver si las varianzas son iguales o no Hacemos un F-Test usamos la función var.test,
+
+que hace el siguiente contraste de hipótesis bilateral con las varianzas de cada muestra:
+
+  H0 var1=var2
+
+  H1 var1!=var2
+
+
+```{r}
+
+
+
+
+colgpa_hombres<-filter(gpaclean,female==FALSE)%>%select(colgpa)
+
+colgpa_mujeres<-filter(gpaclean,female==TRUE)%>%select(colgpa)
+
+
+var.test(colgpa_mujeres$colgpa, colgpa_hombres$colgpa)
+
+
+
+```
+
+
+
+El p-valor es inferior a 0.05 luego descartamos la hipótesis nula y asumimos que las varianzas muestrales son distintas para un nivel de confianza del 0.95
+
+A continuación implementamos la función que calcula la distribución  t de student  y su valor crítico y valor observado así como
+
+el p-valor, que es prácticamente cero. Por tanto rechazamos la hipótesis nula y y podemos afirmar con una confianza del 95%
+
+que la media para las estudiantes es distinta a la de los estudiantes hombres.
+
+
+
+```{r}
+
+
+
+
+medias <- function( x1, x2, NC=0.95 ){
+  
+  alfa<-1-NC
+  n1<-length(x1)
+  n2<-length(x2)
+  s1<-sd(x1)
+  s2<-sd(x2)
+  m1<-mean(x1)
+  m2<-mean(x2)
+
+  denominador<-((s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1))
+  numerador <- (s1^2/n1 + s2^2/n2)^2
+  grados <- numerador /denominador
+  t_obs<-(m1-m2)/sqrt( s1^2/n1 + s2^2/n2 )
+  t_crit<-qt(alfa/2,df=grados,lower.tail = FALSE)
+  p_valor<-pt(abs(t_obs),df=grados,lower.tail = FALSE)*2
+  
+  
+  return (data.frame(NC=NC,t_obs=t_obs,t_crit=t_crit,p_valor=p_valor))
+}
+
+
+ 
+
+medias(colgpa_mujeres$colgpa, colgpa_hombres$colgpa) %>% kbl(caption="¿La nota media semestral para  mujeres es distinta que la de los hombres?") %>%
+  kable_styling()
+
+#Contrastamos los resultados con t.test
+
+ t.test(colgpa_mujeres$colgpa, colgpa_hombres$colgpa)
+
+```
+
+
+
+
+# Modelo de regresión lineal
+
+
+Calculamos un  modelo de regresión lineal múltiple que tenga como variables explicativas: sat, female, tothrs,
+athlete, y hsperc, y como variable dependiente colgpa.
+
+```{r}
+
+
+model <- lm(colgpa ~ sat + female + tothrs +athlete +hsperc, data = gpaclean)
+
+
+```
+
+
+
+## Interpretación del modelo
+
+
+Fijándonos el valor de R^2 sacamos la conclusión de que la varianza de la regresión explica sólo alrededor del 30% de la varianza de todos los datos. Es muy lejano a 1 y por tanto no es un buen ajuste. En cualquier caso el nivel de significancia de todos los predictores en inferior al 0.05 
+y podemos considerar que todos aportan al modelo.
+
+
+```{r}
+
+
+summary(model)
+
+
+
+```
+
+
+
+## Predicción
+
+```{r}
+
+newdf <- data.frame(female=c(FALSE),athlete=c(TRUE),sat=c(800),tothrs=c(60),hsperc=c(60))
+predict(model,newdf)
+
+```
+
+
+
+# Regresión logística
+
+## Estimación del modelo
+
+Estimamos un modelo logístico para predecir la probabilidad de ser un estudiante excelente al final del primer
+ semestre en la universidad en función de las variables: female, athlete, sat, tothrs, black, white y hsperc.
+
+```{r}
+
+gpaclean$excelente<-as.factor(gpaclean$excelente)
+model_2=glm(formula=excelente~female+athlete+sat+tothrs+black+white+hsperc,family=binomial(link=logit),data=gpaclean)
+
+
+```
+
+
+## Interpretación
+
+
+Vemos que las variables generadas por el modelo athleteTRUE y whiteTRUE tienen valores  de signifacncia cercanos a 1.
+
+Esto quiere decir que no aportan  valor al modelo. 
+
+
+
+```{r}
+
+summary(model_2)
+
+```
+
+
+Si quitamos esas dos variables observamos que  la devianza residual se mantienene (con dos grados de libertad más)
+ y el AIC disminuye cuatro puntos.
+ 
+ Además el nivel de significancia de todos los predictores se quedan por debajo del 0.05.
+ 
+ Luego quitando las dos variables el modelo mejora.
+ 
+ 
+ 
+```{r}
+
+model_3=glm(formula=excelente~female+sat+tothrs+black+hsperc,family=binomial(link=logit),data=gpaclean)
+
+summary(model_3)
+
+
+```
+
+
+## Importancia de ser mujer
+
+
+ Calculamos los OR  a partir de los exponentes de los coeficientes. Para female se observa que es de 1,5, 
+ 
+ lo cual quiere decir que ser mujer incrementa en un 50% las posibilidades de tener calificaciones excelentes. 
+ 
+ También listamos el intervalo de confianza del 95%  para cada OR
+
+```{r}
+
+levels(model_2$model$excelente)
+exp(coefficients(model_2))
+exp(confint(model_2))
+
+
+```
+
+## Predicción
+
+¿Con que probabilidad una estudiante mujer, no atleta, con un sat de 1200 puntos, 50 horas cursadas, de raza negra y con un ranking relativo (hsperc) del 10% será excelente?
+ LA probabiliad será del 14%.
+
+
+
+```{r}
+
+
+
+pred<-predict(model_2, data.frame(white=FALSE,female=TRUE,athlete=FALSE,sat=1200, tothrs=50, black=TRUE,hsperc=10),type ="response")
+pred
+
+
+
+```
+
+# Análisis de la varianza (ANOVA) de un factor
+
+## Visualización gráfica
+
+Dibujamos la distribución de  la nueva variable categórica colgpa según los valores de race.
+
+Para "black" se obtiene una mediana bastante inferior al resto . Para white el rango intercuartil es el que tiene una distribución 
+
+más ceracna a la normal
+
+
+```{r}
+
+
+gpaclean$race<-NULL
+gpaclean[which(gpaclean$black==TRUE),c("race")]<-"black"
+gpaclean[which(gpaclean$white==TRUE),c("race")]<-"white"
+gpaclean[which((gpaclean$white==FALSE)&(gpaclean$black==FALSE)),c("race")]<-"other"
+
+
+
+gpaclean$race<-as.factor(gpaclean$race)
+
+
+boxplot(colgpa~race,data=gpaclean,xlab="Raza", ylab="Nota media")
+
+
+```
+
+
+## Hipótesis nula y alternativa
+
+Nos planteamos  si el factor raza es significativo para distribución de colgpa
+
+En la hipótesis nula no lo es y en la hipótesis alternativa existen al menos dos niveles cuyos efectos son significativamente distintos
+
+  H0: alfa0=alfa1=alfa2=0
+  
+  H1: alfai != alfaj para i != j
+
+
+  alfa0 es el efecto del nivel black
+  
+  alfa1 es el efecto del nivel white
+  
+  alfa2 es el efecto del nivel other
+
+
+## Modelo
+
+
+Calculamos la regresión lineal  tomando colgpa como variable independiente  y la variable creada race como predictora.
+
+"df" lista los grados de libertad para la regresión (numero de valores de race menos 1: k-1) y para los errores (numero de registros de la muestra menos numero de valores de race: N- K)
+
+La media de los cuadrados totales es igual a la suma de los cuadrados totales  entre K . 
+
+La media de los cuadrados  de los errores  es igual a la suma de los cuadrados de los errores entre K . 
+
+El f valor será  el cociente entre la media de los cuadrados totales y la media de los cuadrados del error.
+
+
+Las formulas resumidas quedarían así:
+
+
+ race 	    SST 	    df=k−1 	    MST=SST/(df) 	    F-VALOR=MST/MSE
+ 
+ Error 	    SSE 	    df=N−k 	    MSE=SSE/(df)
+ 
+como el p-valor es inferior a 0.05 rechazamos la hipótesis nula y concluimos que hay un diferencia  estadísticamente significativa
+
+entre las medias de la población . Lo que no sabemos aún si las tres medias son diferentes o cuál de ellas es diferente al resto.
+
+
+```{r}
+
+
+modelo_cg_race<-lm(colgpa~race,data=gpaclean)
+taov<-anova(modelo_cg_race)
+taov
+
+
+
+
+
+```
+
+
+## Efecto de los niveles de factor
+
+
+Con la función pairwise.t.test obtenemos los p-valores de todas las comparaciones por parejas.
+
+Se observa un nivel de significancia aceptable para las comparaciones  black-white y black-other
+
+
+```{r}
+
+pairwise.t.test(gpaclean$colgpa,gpaclean$race, p.adj=c("none"))
+
+```
+
+
+Otra forma de analizar el efecto de los niveles es hacer comparaciones múltiples  con la correción de Bonferroni.
+
+Para cada comparación aparece el p-valor  (con asterisco si son considerados significativos) y los intervalos de confianzas correspondientes. 
+Si ponemos el parámetro group a True crea dos grupos:
+
+  a: que contiene los niveles para los que no se considera que existen diferencias significativas en sus medias: other y white
+  
+  b: para black, que es el nivel    con media considerada diferente a las otras dos.
+  
+Por tanto se obtienen la misma conclusión que con el pairtest.
+
+```{r}
+
+LSD.test(modelo_cg_race,"race",group=F,p.adj="bonferroni",console=T)
+LSD.test(modelo_cg_race,"race",group=T,p.adj="bonferroni",console=T)
+
+
+```
+
+
+## Conclusiones
+
+Tras los distintos test hechos llegamos a la conclusión con respecto a  la variabilidad  de colgpa en función de race de que 
+
+únicamente  el  efecto del nivel "black" tiene significancia estadística. Es algo que ya se intuía al analizar el diagrama de cajas, 
+
+donde la media para race=black se encontraba más alejada de las otras dos.
+
+
+## Normalidad de los residuos
+
+
+Para evaluar la normalidad de los residuos usaremos el test de Shapiro-Wilk, cuya hipótesis nula afirma que la distribución es normal.
+
+Al obtener un p-valor cercano a cero hay  que rechazarla y no podemos asumir que los residuos siguen una distribución normal.
+
+Este resultado es coherente  con  la gráfica  cuantil-cuantil, donde  también vemos que los valores residuales no se distribuyen completamente alienados a lo largo de toda la recta de 45 grados fuera del rango intercuantil.
+
+```{r}
+
+
+results <- resid(modelo_cg_race)
+shapiro.test(results)
+qqnorm(results)
+qqline(results)
+
+
+```
+
+
+
+
+## Homocedasticidad de los residuos
+
+
+ Vemos  tres lineas  verticales de puntos que están situadas en las medias de cada grupo que  corresponden a los valores ajustados de las observaciones.
+ 
+Podemos apreciar  una dispersión parecida en cada tira, con lo cual asumimos que la varianza del error es constante para los tres niveles.
+
+
+```{r}
+
+sum(gpaclean$race=="white")
+sum(gpaclean$race=="black")
+sum(gpaclean$race=="other")
+
+
+plot(modelo_cg_race, 1)
+
+```
+
+
+
+
+# ANOVA multifactorial
+
+
+## Análisis visual de los efectos principales y posibles interacciones
+
+
+A través de esta gráfica vemos que para los valores de race, black y white la variable female tiene una relación positiva frente a colgpa. 
+
+No ocurre así para race igual a other, donde ser mujer  da lugar a una media de gcolgpa más baja.
+
+```{r}
+
+interaction.plot(gpaclean$female,gpaclean$race,gpaclean$colgpa)
+
+```
+
+
+## Cálculo del modelo
+
+
+Hacemos uso de la función aov, que invocara a la funcion lm una vez por factor.
+
+```{r}
+
+
+modelo_aov<- aov(colgpa ~ race*female, data = gpaclean)
+
+```
+
+
+## Interpretación de los resultados
+
+
+Usamos la función anova para obtener la tabla de análisis de la  varianza cuyas columnas ya explicamos en el apartado anterior.
+
+En esta ocasión se obtienen para los predictores female y race los respectivos F valores 46.795  (valor muy similar al de la tabla anova  del apartado 6) 
+ y 52.391. Estos son significativos  dado que  p-valor es muy pequeño. 
+ 
+ El F-valor para la interacción entre las dos factores también es significativo, luego concluimos que no solo ambos factores tienen efecto en colgpa sino que además existe una interacción entre los distintos niveles de los factores.
+ 
+ Para entrar en el detalle de esas interacciones habrá que practircar análisis a posteriori.
+ 
+ 
+
+```{r}
+
+
+
+
+anova(modelo_aov)
+
+
+```
+
+
+## Adecuación del modelo
+
+
+De nuevo el test de Shapiro y la gráfica cuantil-cuantil nos sugieren que  los residuos no siguen una distribución normal.
+
+
+
+```{r}
+results <- resid(modelo_aov)
+shapiro.test(results)
+
+plot(modelo_aov, which = 2)
+```
+
+
+
+En el análisis de homocedasticidad ahora vemos 6 lineas verticales, una por cada combinación de parejas de valores ente female y race.
+
+En esta ocasión la  varianza de los residuos  también  es constante.
+
+```{r}
+plot(modelo_aov, which = 1)
+```
+
+
+
+# Conclusiones
+
+Tras haber leido y preparado los datos se ha hecho un análisis descriptivo de las distintas variables donde ya se anticipa lo que hemos confirmado en secciones posteriores: la correlación entre female, colgpaletter y sat.
+
+En el tercer apartado hemos hecho  un estudio inferencial para las variables sat y colgpa.
+
+Con respecto a la primera  hemos visto que para  un intervalo de confianza del 95% no existe solapamiento entre los intervalos de la media para los subgrupos de estudiantes hombres y estudiantes mujeres.
+
+Para colgpa hemos hecho un contraste de hipótesis sobre si la media poblacional para las estudiantes mujeres es distinta que la de los estudiantes hombres llegando a la conclusión que para un nivel de confianza del 95%   hay que rechazar la hipótesis nula.
+
+
+En el cuarto apartado el modelo de regresión lineal generado para colgpa ha obtenido un coeficiente de determinación muy bajo si bien todas las variables dependientes tienen un nivel de significancia próximo a cero y por tanto aportan al modelo. Tal vez la regresión lineal no es el mejor modelo o habría que seguir añadiendo más predictores  y comprobar si mejoran la bondad del ajuste.
+
+
+
+En el modelo de regresión logística del quinto apartado la bondad del ajuste es aceptable pues la devianza residual es inferior a la nula. 
+
+También hemos llegado a la conclusión que las variables white y athlete no aportan mejoras al modelo, es decir, no existe una correlación significante con  con los valores de colgpa considerados como excelentes.
+
+
+En el caso de la variable female sí que existe una correlación ya que se ha obtenido un OR de 1.53.
+
+
+En el apartado 6 hemos hecho un análisis de la varianza de colgpa en función de los niveles  race como factor. 
+
+Primero se ha calculado la tabla ANOVA del modelo de regresión lineal correspondiente y se ha rechazado la hipótesis nula
+
+de que los efectos de cada nivel del race sean iguales .
+
+Posteriormente gracias al pairwise test y a la corrección de Bonferroni se ha concluido que la media del nivel black es significativamente
+
+distinta a la del resto de niveles.
+
+Se ha observado que no se puede confirmar que los residuos se distribuyen de forma normal aunque si hay una varianza del error que  es constante para todos los niveles del factor.
+
+Por útlimo  se ha hecho una anova multifactorial  añadiendo la variable female en la que se ha comprobado que ambos factores tienen efecto y además entre ellos existe una interacción significativa.
+En este apartado también se ha rechazado la hipótesis de que los residuos siguen una distribución normal y además  se aprecia gráficamente homocedasticidad.
+
+
+
+
+
+
+
+
+
+
+
+
+
+

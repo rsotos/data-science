@@ -1,0 +1,470 @@
+---
+title: "PEC 2 Estadistica Avanzada"
+author: "Ramon Soto"
+date: '2022-05-05'
+output:  
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    width: 800
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Carga de datos
+
+Volcado en DAtaframe y presentación de datos
+
+```{r cars}
+
+
+
+library(dplyr)
+library('ggplot2')
+library('corrplot')
+library("ggpubr")
+library("faraway")
+library(car)
+
+
+setwd("D:/uoc/estadistica avanzada/pec3/" );
+
+airs <- 
+  read.table("dat_Air_Stations.csv", 
+             header=TRUE, stringsAsFactors=TRUE, sep=",", na.strings="NA", dec=".", 
+             strip.white=TRUE)
+head(airs)
+str(airs)
+summary(airs)
+```
+
+
+# Regresión Lineal 
+##  Estudio comparativo de las estaciones
+
+Creamos un nuevo dataframe con los valores máximos y medios diarios de cada estación. Posteriormente para cada contaminante se listará  ordenados de menor a mayor el número de días para los que se superan los umbrales medidos y máximos tal como se describe en el enunciado. 
+
+```{r}
+
+
+
+
+airs$Fecha<-as.Date(airs$Fecha, "%m/%d/%y")
+
+OMS_media_PM10<-45
+OMS_media_O3<-60
+OMS_media_SO2<-40
+OMS_media_NO2<-25
+OMS_max_diaria_O3<-100
+OMS_max_diaria_NO2<-120
+
+max_med<-airs %>%
+  group_by(Fecha,Nombre) %>%
+  summarize(mediaPM10 = mean(PM10, na.rm=TRUE), maxPM10=max(PM10),
+            mediaNO2 = mean(NO2, na.rm=TRUE), maxNO2=max(NO2),
+            mediaO3 = mean(O3, na.rm=TRUE), maxO3=max(O3),
+            mediaSO2 = mean(SO2, na.rm=TRUE), maxNSO2=max(SO2))
+ 
+
+
+
+supera_OMS_PM10<-select((max_med%>%filter(mediaPM10>OMS_media_PM10)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+supera_OMS_O3<-select((max_med%>%filter(mediaO3>OMS_media_O3)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+
+supera_OMS_SO2<-select((max_med%>%filter(mediaSO2>OMS_media_SO2)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+supera_OMS_NO2<-select((max_med%>%filter(mediaNO2>OMS_media_NO2)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+
+
+supera_OMS_maxO3<-select((max_med%>%filter(maxO3>OMS_max_diaria_O3)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+supera_OMS__maxNO2<-select((max_med%>%filter(maxNO2>OMS_max_diaria_NO2)),Nombre)%>%
+  group_by(Nombre) %>%summarize(n = n())%>%arrange(n)
+
+
+
+supera_OMS_PM10
+supera_OMS_O3
+supera_OMS_SO2
+supera_OMS_NO2
+
+```
+
+
+
+```{r}
+
+supera_OMS_maxO3
+supera_OMS__maxNO2
+
+
+```
+
+
+
+Vemos que los contaminantes para los que se superan más veces los umbrales de la OMS son el O3, tanto en valores promedio como máximos, y el NO2 (sólo en el caso del umbral del valor medio). Para PM10 ninguna estación llega a la decena de veces en las que se supera el valor umbral.
+
+En el caso del umbral medio del O3 destacan por encima del resto las estaciones de Montevil y Avenida Castilla.
+Para SO2 no hay valores que sobrepasen el umbral.
+Para No2 destacan las estaciones de Hermanos Felgueroso, Avenida Constitución y Avenida Argentina.
+
+Los valores máximos de O3 que superan el límite solo son más de 10 para tres de las estaciones.
+
+
+##  b
+
+
+```{r}
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+
+```
+
+
+ 1.1 c
+
+```{r}
+dibuja_correlaciones <-function(i) { 
+estacion_SO2<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(SO2==max(SO2))%>%select(Fecha,SO2,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_SO2)=="Fecha") 
+estacion_SO2<-estacion_SO2[,-elim.pos]
+
+mat_Cor1<-cor(na.omit(estacion_SO2))
+
+#corrplot(mat_Cor, method = 'number')
+
+
+estacion_PM10<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(PM10==max(PM10))%>%select(Fecha,PM10,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_PM10)=="Fecha") 
+estacion_PM10<-estacion_PM10[,-elim.pos]
+
+mat_Cor2<-cor(na.omit(estacion_PM10))
+
+#corrplot(mat_Cor, method = 'number')
+
+
+estacion_O3<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(O3==max(O3))%>%select(Fecha,O3,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_O3)=="Fecha") 
+estacion_O3<-estacion_O3[,-elim.pos]
+
+mat_Cor3<-cor(na.omit(estacion_O3))
+
+#corrplot(mat_Cor, method = 'number')
+
+estacion_NO2<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(NO2==max(NO2))%>%select(Fecha,NO2,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_NO2)=="Fecha") 
+estacion_NO2<-estacion_NO2[,-elim.pos]
+
+mat_Cor4<-cor(na.omit(estacion_NO2))
+
+#corrplot(mat_Cor, method = 'number')
+
+par( mfrow=c(2,2))
+corrplot(mat_Cor1, method = 'number', title=as.character(i))
+corrplot(mat_Cor2, method = 'number')
+corrplot(mat_Cor3, method = 'number')
+corrplot(mat_Cor4, method = 'number')
+par( mfrow=c(1,1))
+
+
+}
+dibuja_correlaciones("Estacion Avenida Constitucion")
+dibuja_correlaciones("Estacion de Montevil")
+
+
+
+
+```
+
+
+
+## 1.2 Modelos de regresión lineal
+
+Hacemos la regresión lineal  tomando O3 como variable dependiente y NO2 como variable independiente.
+
+El coeficiente asociado a NO2 es negativo, luego se deduce una relación inversa con O3:  un aumento en una unidad de NO2 supondría un decremento de de O3 en aproximadamente 1.3 unidades.
+
+Fijándonos el valor de R^2  sacamos la conclusión de que  la varianza de la regresión explica sólo alrededor del 42% de la varianza de todos los datos. Es muy lejano a 1 por tantola no es un buen ajuste.
+
+
+
+```{r}
+
+model <- lm(O3 ~ NO2 , data = airs)
+summary(model)
+
+
+
+
+
+
+
+```
+
+A continuación vamos a añadir la variable de los nombres de las estaciones. La funcion lm la trasnformara en 4 variables dummies de acuerdo a este patrón de abajo.
+
+Cuando las cuatro variables binarias valgan cero la regresión nos hará la estimacion del valor de O3 para la "Estación  de Avenida Argentina", quedando determinado por el valor "Intercept"
+
+```{r}
+
+contrasts(airs$Nombre)
+
+```
+
+Centrándonos el los valores de los coeficientes resulta llamativo el nivel de significancia de la Estación "Avenida Hermanos Felgueroso". Es extremadamente alto, muy por encima de lo que seria un umbral aceptable, en torno al 0.05. El coeficiente de determinación a pasado a 0.4267, es decir ha mejorado con respecto al modelo anterior tan solo en menos de 0.005. Concluimos  que la variable "Nombres" no aporta mejoras significativas a la bondad del ajuste.
+
+
+```{r}
+
+
+
+model <- lm(O3 ~ NO2+Nombre , data = airs)
+summary(model)
+
+```
+
+
+
+## 1.3 Regresion lineal múltiple
+
+### A)
+
+Construimos el modelo para cada una de las estaciones de incluyendo las variables indicadas.
+
+Para la estación de Montevil todos los coeficientes de las variables independientes con un nivel de significancia próximo a cero.
+
+Para No2 y HR la correlación es negativa. Si volvemos a la matriz de correlaciones para O3 y HR en con los datos totales de esta estación coincide el signo de la correlación.
+
+El coeficiente de determinación sube casi en 0.2 puntos con respecto a los dos modelos anteriores, sin embargo sigue estando au´n demasiado alejado de 1.
+
+```{r}
+
+data_Montevil<- airs %>% filter(Nombre=="Estacion de Montevil") %>% select(O3,NO2,vv,RS,HR,LL,TMP)
+modelo_Montevil <- lm(O3 ~ NO2 + vv + RS +HR +LL, data = data_Montevil)
+summary(modelo_Montevil)
+
+```
+
+PAra la estación de la Avenida Constitución los coeficientes tienen unso valores parecidos si bien el R^2 es algo inferior y no llega a 0.6
+
+
+```{r}
+
+data_Constitucion<- airs %>% filter(Nombre=="Estacion Avenida Constitucion") %>% select(O3,NO2,vv,RS,HR,LL,TMP)
+modelo_Constitucion <- lm(O3 ~ NO2 + vv + RS +HR +LL, data = data_Constitucion)
+summary(modelo_Constitucion)
+
+
+```
+
+
+### B)
+
+
+
+Al introducir como variable independiente  TMP, para Montevil el coeficiente de determinación apenas sube del 0.61 al 0.612
+
+Para la otra estación ni lo mejora. Es más TMP tienen un nivel de significancia cercano a 1, luego de ahí se deduce  que es mejor quitarla del modelo.
+
+
+
+```{r}
+
+modelo_Montevil <- lm(O3 ~ NO2 + vv + RS +HR +LL+TMP, data = data_Montevil)
+summary(modelo_Montevil)
+
+modelo_Constitucion <- lm(O3 ~ NO2 + vv + RS +HR +LL+TMP, data = data_Constitucion)
+summary(modelo_Constitucion)
+
+
+```
+
+
+Ahora calculamos el factor de invarianza para cada uno de los predictores y vemos que si bien TMP es el que tienen el valor más alto para los dos modelos, está muy por debajo del nivel para el que podemos considerar que existe colinealidad
+
+https://quantifyinghealth.com/vif-threshold/
+
+
+```{r}
+
+
+
+
+
+vif(modelo_Montevil)
+
+
+
+vif(modelo_Constitucion)
+```
+
+
+
+
+
+## Diagnosis del modelo
+
+
+
+Si el modelo lineal obtenido se ajusta bien a los datos muestrales, entonces la
+nube de puntos ( , ei) no debe mostrar ningún tipo de estructura.
+
+
+e: if the residuals fall along a roughly straight line at a 45-degree angle, then the residuals are roughly normally distributed
+
+
+
+
+```{r}
+avPlots(modelo_Montevil, main="as")
+
+
+res <- resid(modelo_Montevil)
+
+plot(fitted(modelo_Montevil), res)
+abline(0,0)
+
+
+qqnorm(res)
+
+
+qqline(res)
+
+plot(density(res))
+
+```
+
+
+
+## Predicción del modelo
+
+USamos la función predict para estimar con el modleo los valores  de los perdictores que se especifican en el enunciado.
+
+```{r}
+
+newdf <- data.frame(NO2=c(40),vv=c(2),RS=c(100),HR=c(80),LL=(0.10),TMP=c(25))
+predict(modelo_Montevil,newdf)
+
+
+```
+
+
+
+
+
+# Regresión Logistica
+
+
+```{r}
+
+airs$icPM10<-NULL
+
+airs$icPM10[(airs["PM10"]>0)&(airs["PM10"]<=45)]="aceptable"
+airs$icPM10[(airs["PM10"]>45)&(airs["PM10"]<=180)]="mejorable"
+
+
+airs$icO3<-NULL
+
+airs$icO3[(airs["O3"]>0)&(airs["O3"]<=60)]="aceptable"
+airs$icO3[(airs["O3"]>60)&(airs["O3"]<=170)]="mejorable"
+
+
+
+airs$RSre<-NULL
+
+airs$RSre[(airs["RS"]>0)&(airs["RS"]<=100)]="normal baja"
+airs$RSre[(airs["RS"]>100)&(airs["RS"]<=700)]="normal alta"
+
+            
+
+
+
+```
+
+
+
+
+## Análisis crudo
+
+
+```{r}
+
+
+
+
+
+
+
+```
+

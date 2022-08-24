@@ -1,0 +1,546 @@
+---
+title: "PEC 2 Estadistica Avanzada"
+author: "Ramon Soto"
+date: '2022-04-13'
+output:  
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    width: 800
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Carga de datos
+
+
+
+```{r cars}
+
+library(kableExtra)
+setwd("D:/uoc/estadistica avanzada/PEC2/" );
+Salarios <-
+  read.table("CensusIncome_clean.csv",
+             header=TRUE, stringsAsFactors=TRUE, sep=",", na.strings="NA", dec=".",
+             strip.white=TRUE)
+
+#Se comprueba que se ha leido bien la tabla
+
+str(Salarios)
+```
+
+# Edad
+
+## Distribucion de edades
+
+Haciendo un histograma de frecuencias puede verse  cierta similitud con una distribución normal pero con una  asimetría positiva
+
+
+
+```{r pressure, echo=FALSE}
+
+
+
+hist(Salarios$age, breaks="Sturges", col="ivory",ylab="Frecuencia",xlab="age")
+
+
+
+```
+
+## Normalidad
+
+Considerando el teorema del límite central, dado  el tamaño de la muestra de edades que disponemos,
+podemos asumir que este teorema establece que el contraste de hipótesis sobre la media de una muestra 
+se aproxima a una distribución normal 
+
+Otra alternativa es usar el test de Shapiro. Para ello seleccionamos una subconjunto con 5000 muestras.
+
+
+El marcador es próximo a 1 y el p valor muy bajo. Por tanto podemos asumir la normalidad de los datos de la variable age
+
+```{r}
+
+
+age_sample<-sample(Salarios$age,5000)
+shapiro.test(age_sample)
+
+
+
+
+
+```
+
+## Intervalo de confianza,cálculos e interpretación
+
+Definimos la función  Intervalo de confianza de la media y posteriormente se hacen dos llamadas con NC=0.9 y NC=0.95
+
+El intervalo de confianza para un valor de NC indica que  la media de la población se encuentra en dicho intervalo
+con una confianza del NC*100%
+
+Por eso cuando aumentamos el valor del NC aumenta el rango del intervalo
+
+```{r}
+
+IC <- function( x, NC=0.9 ){
+  alfa<-1-NC
+  n<-length(x)
+  desv<-sd(x)
+  media<-mean(x)
+  
+  #Z contiene el valor para el que se cumple que P(X>z)=alfa/2
+  z<-qnorm (alfa/2,lower.tail=FALSE)
+  
+  #Se devuelven los dos valores del intervalo
+
+  return(c(media-(z*desv/sqrt(n)),media+(z*desv/sqrt(n))))
+
+}
+
+IC(Salarios$age,0.9)
+IC(Salarios$age,0.95)
+
+
+
+
+```
+
+# Salario
+
+## Pregunta
+
+¿La media poblacional del salario de  los trabajadores autónomos es inferior a la  del resto de trabajadores?
+
+## Hipótesis
+
+Planteamos la hipótesis nula y la hipótesis alternativa:
+
+H0 mu1=mu2
+
+H1 mu1<mu2
+
+siendo mu1 la media del salario de las personas self-employed y mu2 la media del resto de la población
+
+## Test a aplicar
+
+Aquí podemos aplicar un contraste de hipótesis de dos muestras independientes (self-employed y el resto de categorías profesionales)
+sobre la media. Como no tenemos información  la varianza es desconocida. 
+
+Para ver si las varianzas son iguales o no Hacemos un F-Test usamos la función var.test, que hace el siguiente contraste de hipótesis bilateral con las varianzas de cada muestra:
+
+ H0 var1=var2
+ 
+ H1 var1!=var2
+ 
+ 
+El valor F observado se encuentra dentro del intervalo de confianza al 95%.
+
+Por lo tanto no podemos rechazar la hipótesis nula y asumimos que las varianzas de las muestras son  iguales
+para los niveles de confianza que vamos a usar: 0.9 y 0.95
+
+
+
+```{r}
+muestra1<-Salarios$income[Salarios$workclass=="Self-Employed"]
+muestra2<-Salarios$income[Salarios$workclass!="Self-Employed"]
+
+var.test(muestra1, muestra2)
+
+```
+
+## Cálculo
+
+A continuación definimos la función que nos devolverá el p valor el valor observado y el valor crítico y la invocamos  dos veces con un NC de 0.9 y de 0.95 respectivamente.
+
+Comparamos con la función t.test para comprobar que coinciden el p valor y el valor observado
+
+```{r}
+
+
+
+
+
+
+varianzas <- function( x1, x2, NC=0.95 ){
+  
+  
+ 
+  alfa<-1-NC
+  n1<-length(x1)
+  n2<-length(x2)
+  grados<-n1+n2-2 #estos son los grados de la función t de student que usaremos para calcular el p valor y el valor crítico
+  s1<-sd(x1)
+  s2<-sd(x2)
+  m1<-mean(x1)
+  m2<-mean(x2)
+  S<-sqrt(((n1-1)*s1^2+ (n2-1)*s2^2)/(n1+n2-2)) #esta es la desviación típica común 
+  z_obs<-(m1-m2)/(S*sqrt((1/n1)+(1/n2)))
+  z_crit<-qt(alfa,df=grados,lower.tail = TRUE)
+  p_valor<-pt(z_obs,df=grados,lower.tail = TRUE)
+  
+ 
+  return (data.frame(NC=NC,z_obs=z_obs,z_crit=z_crit,p_valor=p_valor))
+  
+  
+}
+
+
+
+
+
+tabla1<- rbind(varianzas(muestra1,muestra2,0.90),
+varianzas(muestra1,muestra2,0.95))
+
+
+tabla1 %>%
+  kbl() %>%
+  kable_styling()
+
+
+t.test(muestra1,muestra2,alternative="less", var.equal=TRUE,conf.level=0.9)
+t.test(muestra1,muestra2,alternative="less", var.equal=TRUE)
+
+```
+
+
+
+## Conclusión
+
+En ambos casos el p valor es no es menor que el nivel de significancia y además el valor observado es mayor que el valor crítico.
+
+Por tanto no podemos rechazar la hipótesis nula  de que ambas medias poblacionales son iguales
+
+
+
+#  Proporción de Self-Employed
+
+## Pregunta
+
+¿La proporción de personas self-employed en la población es superior al 10%?
+
+## Hipótesis
+
+El contraste de hipótesis seria el siguiente:
+
+H0: p=0.1
+
+H1: p>0.1
+
+donde p es la proporcion  de las personas self-employed
+
+## Analisis visual
+
+En la grafica  de abajo observamos que en esta muestra que las personas Self-emloyed superan el 10%
+
+```{r}
+
+
+library(lessR)
+PieChart(workclass, data=Salarios, xlab="", ylab="", main="workclass", 
+         col=rainbow(4), scale="percent")
+
+```
+```{r}
+
+```
+
+
+
+## Contraste
+
+
+Planteamos un contraste de hipótesis sobre la proporción para muestras suficientemente grandes
+Se trata por tanto de un contraste unilateral por la derecha.
+
+El estadístico de contraste que usaremos lo definiremos en la función "proporción" y tendrá como parámetros
+la proporción de la muestra, el parámetro  poblacional (con valor 0,1) y el tamaño de la muestra
+
+Este estadístico  seguirá una distribución normal bajo la hipótesis nula
+
+
+```{r}
+
+
+
+
+proporcion <- function( p_muestra,n, p0, NC=0.95 ){
+  
+  
+
+  alfa<-1-NC
+  #calculo del valor observado con el estadístico
+  z_obs<-(p_muestra-p0)/sqrt(p0*(1-p0)/n)
+  #como el estadisstico sigue una distribucion normal 
+  #para calcular el valor critico  y el p valor se usan pnorm y qnorm
+  z_crit<-qnorm(alfa,lower.tail = FALSE) 
+  p_valor<-pnorm(z_obs,lower.tail = FALSE)
+  
+  
+  return (data.frame(NC=NC,z_obs=z_obs,z_crit=z_crit,p_valor=p_valor))
+  
+  
+}
+
+```
+
+## Cálculo y conclusiones
+
+
+El p valor es menor que el nivel de significancia (0.05) Y el valor observado es mayor que el valor critico
+
+Esto nos lleva a rechazar la hipótesis nula y a afirmar que la proporción de self employed en la población 
+es superior al 10% con un nivel de confianza del 95%
+
+
+
+```{r}
+#usamos muestra1, que contiene los self-employed
+n<-nrow(Salarios)
+p_muestra<-length(muestra1)/n
+
+tabla2<-proporcion(p_muestra,n,0.1)
+
+tabla2 %>%
+  kbl() %>%
+  kable_styling()
+
+```
+
+
+
+
+
+
+
+# Proporcion de Self-Employed en mujeres y hombres
+
+## Pregunta
+
+¿La proporción de Self-Employed entre las mujeres de la población es menor a la proporción de Self-Employed entre los hombres de la población?
+
+## Visualización
+
+Hacemos una gráfica de barras en la que se puede apreciar para la muestra dada que la porporción de Self-Employed 
+dentro del subconjunto de mujeres es claramente menor que dentro del subjonjunto de hombres 
+
+```{r}
+
+if (!require('ggplot2')) install.packages('ggplot2'); library('ggplot2')
+
+ggplot(data=Salarios,aes(x=gender,fill=workclass))+geom_bar()+ggtitle("Porporción de workclass por gender")+labs(x="Gender")
+
+
+
+```
+
+
+## Hipótesis:
+
+H0: p1=p2
+
+H1: p1<p2
+
+siendo p1 proporción de Self-Employed entre las mujeres y p2 la correspondiente entre los hombres de la población
+
+## Test
+
+Haremos por tanto un contrste de proporción sobre dos muestras.
+
+Considerararemos que las muestras son  lo suficiente grandes.
+Se trata de  un contraste unilateral por la izquierda.
+
+El estadístico de contraste lo definiremos en la función "proporciones" y recibirá como parámetros las proporciones y tamaños de cada muestras así como el nivel de confianza
+
+## Cálculo
+
+
+```{r}
+proporciones <- function( p1,p2,n1, n2, NC=0.97 ){
+  
+  
+  alfa<-1-NC
+  
+  
+  p<-(n1*p1 + n2*p2) / (n1+n2)
+  z_obs<-(p1-p2)/( sqrt(p*(1-p)*(1/n1+1/n2)) )
+  z_crit<-qnorm(alfa, lower.tail=TRUE)
+  p_valor<-pnorm(z_obs,lower.tail = TRUE)
+  
+  
+  return (data.frame(NC=NC,z_obs=z_obs,z_crit=z_crit,p_valor=p_valor))
+  
+  
+}
+
+#Aquí preparamos  los parámetros
+
+xf<-Salarios[(Salarios$gender=="f"),]
+xm<-Salarios[(Salarios$gender=="m"),]
+
+self_f<-xf[(xf$workclass=="Self-Employed"),]
+self_m<-xm[(xm$workclass=="Self-Employed"),]
+n1<-nrow(xf)
+n2<-nrow(xm)
+p1<-nrow(self_f)/n1
+p2<-nrow(self_m)/n2
+
+#llamamos a la función y  presentamos los resultados en una tabla
+
+
+
+tabla<- proporciones(p1,p2,n1,n2)
+
+tabla %>%
+  kbl() %>%
+  kable_styling()
+
+#contrastamos resultados con prop.test
+success<-c( p1*n1, p2*n2)
+ nn<-c(n1,n2)
+prop.test(success, nn, alternative="less", correct=FALSE)
+```
+
+## Conclusión 
+
+El p valor es inferior al nivel de significancia y también el valor observado es menor que el valor critico estando por tanto fuera del rango de aceptación de la hipótesis nula
+
+En este caso podemos afirmar con un nivel de confianza del 97% que la proporción de self-employed en las mujeres es menor a la proporción de self-employed en los hombres
+
+
+
+
+
+# Dependencia Self-Employed- Gender
+
+## Pregunta
+
+¿ Las variables Self-Employed y Gender están relacionadas o son indenpendientes?
+
+## Hipótesis:
+
+H0: Self-Employed y Gender son independientes
+
+H1: Self-Employed y Gender están relacionadas
+
+## Test
+
+
+Aplicaremos el del test chi cuadrado.Primero construiremos la tabla de contingencia.
+
+A partir de ella se calculan  los valores esperados si las variables  no estuvieran relacionadas 
+
+Con estos datos se calcula la formula que nos dará el valor observado
+
+Esta sigue una distribución Chi cuadrado con 1 grado de libertad.
+
+
+
+```{r}
+
+Salarios$isSE <- ifelse( Salarios$workclass=="Self-Employed", "Self-Employed","Other")
+tc<-table( Salarios$isSE, Salarios$gender )
+tc
+
+
+
+testchicuadrado <- function( tc, NC=0.97 ){
+  n<-sum(tc)
+  e<-matrix(nrow = 2, ncol = 2)
+  e[1,1]<-sum(tc[1,])*sum(tc[,1])/n
+  e[1,2]<-sum(tc[1,])*sum(tc[,2])/n
+  e[2,1]<-sum(tc[2,])*sum(tc[,1])/n
+  e[2,2]<-sum(tc[2,])*sum(tc[,2])/n
+  
+  alfa<-1-NC
+  
+  z_obs<-sum((tc-e)^2/e)
+
+ 
+  p_valor<-pchisq(z_obs,df=1,lower.tail=FALSE)
+  
+  
+  return (data.frame(z_obs=z_obs,p_valor=p_valor))
+  
+  
+}
+
+
+
+
+tabla<- testchicuadrado(tc)
+
+tabla %>%
+ kbl() %>%
+  kable_styling()
+
+chisq.test(tc, correct=TRUE) #usamos esta función para cotejar
+
+```
+
+## Cálculo y conclusión
+
+
+Vemos comparando con chisq.test que que se obtiene un valor observado aproximado. 
+El p valor es muy pequeño y  podemos rechazar la hipótesis nula.
+
+ Por tanto con un nivel de confianza del 97%  podemos afirmar que las variables no son independientes, confirmando el apartado anterior
+
+# Resumen
+
+```{r}
+
+library(kableExtra)
+
+
+preguntas<- c("Intervalo de confianza de la media de edad al 95%",
+              
+              "¿La media poblacional del salario de  los trabajadores autónomos es inferior a la  del resto de trabajadores?",
+              
+              "¿La proporción de personas self-employed en la población es superior al 10%?",
+              
+              "¿La proporción de Self-Employed entre las mujeres de la población es menor a la proporción de Self-Employed entre los hombres de la población?",
+              
+              "¿ Las variables Self-Employed y Gender están relacionadas o son indenpendientes?"
+              
+              )
+
+
+
+intervalo<-c("(38.40277, 38.69698)","","","","")
+nivelconf<-c("0.95","0.95","0.95","0.97","0.97")
+pvalor<-c("","1","0","0","0")
+ZOBS<-c("","5.77555","7.421387","-25.20201","635.1414")
+ZCRIT<-c("","-1.644900","1.644854","-1.880794","")
+
+Conclusiones<-c("El intervalo de confianza para un valor de NC indica que  la media de la población se encuentra en dicho intervalo con una confianza del NC*100%",
+                "Para los NC de 90 y 95% no podemos rechazar la hipótesis nula de que ambas medias poblacionales son iguales",
+                "Rechazamos la hipoteis nula y afirmar que la proporción de self employed en la población es superior al 10% con un nivel de confianza del 95%",
+                "Podemos afirmar con un nivel de confianza del 97% que la proporción de self-employed en las mujeres es menor a la proporción de self-employed en los hombres",
+                "Con un nivel de confianza del 97% podemos afirmar que las variables no son independientes"
+                )
+
+resumen<-data.frame(apartado=c(2,3,4,5,6),
+           preguntas=preguntas,
+           intervalo=intervalo,
+           nivelconf=nivelconf,
+           pvalor=pvalor,
+           ZOBS=ZOBS,
+           ZCRIT=ZCRIT,
+           
+           conclusiones=Conclusiones
+           )
+
+
+
+
+resumen %>%
+  kbl("html") %>%
+  kable_styling(full_width = F)
+
+```
+
+

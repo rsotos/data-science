@@ -1,0 +1,231 @@
+---
+title: "PEC 2 Estadistica Avanzada"
+author: "Ramon Soto"
+date: '2022-05-05'
+output:  
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    width: 800
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Carga de datos
+
+
+
+```{r cars}
+
+# 1 Carga de datos
+## Volcado en DAtaframe y presentacion de datos
+
+library(dplyr)
+library('ggplot2')
+library('corrplot')
+library("ggpubr")
+
+setwd("D:/uoc/estadistica avanzada/pec3/" );
+
+airs <- 
+  read.table("dat_Air_Stations.csv", 
+             header=TRUE, stringsAsFactors=TRUE, sep=",", na.strings="NA", dec=".", 
+             strip.white=TRUE)
+head(airs)
+str(airs)
+summary(airs)
+```
+
+## 1.1 a
+
+
+
+```{r}
+
+
+
+
+
+airs$Fecha<-as.Date(airs$Fecha, "%m/%d/%y")
+
+OMS_media_PM10<-45
+OMS_media_O3<-60
+OMS_media_SO2<-25
+OMS_media_NO2<-40
+OMS_max_diaria_O3<-100
+OMS_max_diaria_NO2<-120
+
+max_med<-airs %>%
+  group_by(Fecha,Estacion) %>%
+  summarize(mediaPM10 = mean(PM10, na.rm=TRUE), maxPM10=max(PM10),
+            mediaNO2 = mean(NO2, na.rm=TRUE), maxNO2=max(NO2),
+            mediaO3 = mean(O3, na.rm=TRUE), maxO3=max(O3),
+            mediaSO2 = mean(SO2, na.rm=TRUE), maxNSO2=max(SO2))
+ 
+
+
+
+select((max_med%>%filter(mediaPM10>OMS_media_PM10)),Estacion)%>%
+  group_by(Estacion) %>%summarize(n = n())
+
+select((max_med%>%filter(mediaO3>OMS_media_O3)),Estacion)%>%
+  group_by(Estacion) %>%summarize(n = n())
+
+
+select((max_med%>%filter(mediaSO2>OMS_media_SO2)),Estacion)%>%
+  group_by(Estacion) %>%summarize(n = n())
+
+select((max_med%>%filter(mediaNO2>OMS_media_NO2)),Estacion)%>%
+  group_by(Estacion) %>%summarize(n = n())
+
+
+
+select((max_med%>%filter(maxO3>OMS_max_diaria_O3)),Estacion)%>%
+  group_by(Estacion) %>%summarize(n = n())
+
+select((max_med%>%filter(maxNSO2>OMS_max_diaria_NO2)),Estacion)%>%
+  group_by(Estacion) %>%summarize(n = n())
+
+
+```
+
+
+
+## 1.1 b
+
+
+```{r}
+# aux = airs %>% distinct(Estacion)
+# distinct_Estacion = aux$Estacion
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxPM10)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxO3)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+v<-ggplot(data = max_med[max_med$Estacion==1,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 1")
+
+b<-ggplot(data = max_med[max_med$Estacion==2,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 2")
+
+n<-ggplot(data = max_med[max_med$Estacion==3,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 3")
+
+m<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 4")
+
+k<-ggplot(data = max_med[max_med$Estacion==4,], aes(x =Fecha , y = maxNSO2)) +geom_line(color = "#00AFBB", size = 2)+ geom_smooth(color = "firebrick") + theme_bw() +ggtitle("Estacion 10")
+
+ggarrange(v,b,n,m,k,
+          
+          ncol = 2, nrow = 3)
+
+
+
+
+
+```
+
+
+#1.1 c
+
+```{r}
+dibuja_correlaciones <-function(i) { 
+estacion_SO2<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(SO2==max(SO2))%>%select(Fecha,SO2,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_SO2)=="Fecha") 
+estacion_SO2<-estacion_SO2[,-elim.pos]
+
+mat_Cor1<-cor(na.omit(estacion_SO2))
+
+#corrplot(mat_Cor, method = 'number')
+
+
+estacion_PM10<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(PM10==max(PM10))%>%select(Fecha,PM10,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_PM10)=="Fecha") 
+estacion_PM10<-estacion_PM10[,-elim.pos]
+
+mat_Cor2<-cor(na.omit(estacion_PM10))
+
+#corrplot(mat_Cor, method = 'number')
+
+
+estacion_O3<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(O3==max(O3))%>%select(Fecha,O3,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_O3)=="Fecha") 
+estacion_O3<-estacion_O3[,-elim.pos]
+
+mat_Cor3<-cor(na.omit(estacion_O3))
+
+#corrplot(mat_Cor, method = 'number')
+
+estacion_NO2<-airs %>%filter(Nombre==i) %>%group_by(Fecha)%>%filter(NO2==max(NO2))%>%select(Fecha,NO2,TMP,HR,RS,vv,LL,PRB)
+elim.pos <- which(names(estacion_NO2)=="Fecha") 
+estacion_NO2<-estacion_NO2[,-elim.pos]
+
+mat_Cor4<-cor(na.omit(estacion_NO2))
+
+#corrplot(mat_Cor, method = 'number')
+
+par( mfrow=c(2,2))
+corrplot(mat_Cor1, method = 'number', title=i)
+corrplot(mat_Cor2, method = 'number')
+corrplot(mat_Cor3, method = 'number')
+corrplot(mat_Cor4, method = 'number')
+par( mfrow=c(1,1))
+
+
+}
+dibuja_correlaciones("Estacion Avenida Constitucion")
+dibuja_correlaciones("Estacion de Montevil")
+
+
+
+
+
+
+
+
+
+```
+
